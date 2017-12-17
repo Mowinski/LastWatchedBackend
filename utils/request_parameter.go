@@ -1,6 +1,8 @@
 package utils
 
-import "strconv"
+import (
+	"strconv"
+)
 
 // GetIntOrDefault return value as string or if value is empty or not string return defaultValue
 func GetIntOrDefault(value string, defaultValue int) int {

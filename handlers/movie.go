@@ -2,7 +2,6 @@
 package movies
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 
@@ -20,20 +19,26 @@ func MovieListHandler(w http.ResponseWriter, r *http.Request) {
 	skip := utils.GetIntOrDefault(r.URL.Query().Get("skip"), 0)
 	limit := utils.GetIntOrDefault(r.URL.Query().Get("limit"), 50)
 
-	rows, err := database.GetDBConn().Query("SELECT id, name, url  FROM tv_series WHERE name LIKE ? LIMIT ? OFFSET ?;", searchString, limit, skip)
+	movies, err := retriveMovieItems(searchString, limit, skip)
 	if err != nil {
 		logger.Logger.Print("Error during fetch movies from database, error: ", err)
-		utils.RespondWithJSON(w, http.StatusBadRequest, map[string]error{"error": err})
+		utils.RespondWithJSON(
+			w,
+			http.StatusBadRequest,
+			map[string]string{"error": err.Error()},
+		)
 		return
 	}
-	defer rows.Close()
-
-	movies := retriveMovieItems(rows)
-
 	utils.RespondWithJSON(w, http.StatusOK, movies)
 }
 
-func retriveMovieItems(rows *sql.Rows) (movies models.MovieItems) {
+func retriveMovieItems(searchString string, limit int, skip int) (movies models.MovieItems, err error) {
+	rows, err := database.GetDBConn().Query("SELECT id, name, url  FROM tv_series WHERE name LIKE ? LIMIT ? OFFSET ?;", searchString, limit, skip)
+	if err != nil {
+		return movies, err
+	}
+	defer rows.Close()
+
 	for rows.Next() {
 		var movie models.MovieItem
 
@@ -42,5 +47,5 @@ func retriveMovieItems(rows *sql.Rows) (movies models.MovieItems) {
 		}
 		movies = append(movies, movie)
 	}
-	return movies
+	return movies, nil
 }

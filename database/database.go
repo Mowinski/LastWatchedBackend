@@ -26,8 +26,13 @@ func GetDBConn() *sql.DB {
 	}
 	err := dbConn.Ping()
 	if err != nil {
-		logger.Logger.Fatal("Can not ping database server")
+		logger.Logger.Fatal("Can not ping database server, error: ", err)
 	}
 
 	return dbConn
+}
+
+// SetDBConn set database object
+func SetDBConn(db *sql.DB) {
+	dbConn = db
 }
