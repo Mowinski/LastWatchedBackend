@@ -1,22 +1,32 @@
 package main
 
 import (
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 
+	_ "github.com/go-sql-driver/mysql"
+
+	"github.com/Mowinski/LastWatchedBackend/database"
+	"github.com/Mowinski/LastWatchedBackend/logger"
 	"github.com/naoina/toml"
 )
+
+type databaseCfg struct {
+	Host     string
+	Port     int
+	User     string
+	DBName   string
+	Password string
+}
 
 type config struct {
 	LogFileName string
 	Address     string
 	Port        int
+	Database    databaseCfg
 }
-
-var logger *log.Logger
 
 func main() {
 	configFile := getConfigFileName()
@@ -25,13 +35,22 @@ func main() {
 		log.Fatal("Can not read config file, check `", configFile, "` or set LASTWATCHEDMOVIE_CONFIG environment, error: ", err)
 	}
 
-	setLogger(cfg.LogFileName)
+	err = logger.SetLogger(cfg.LogFileName)
+	if err != nil {
+		log.Fatal("Can not open log file '", cfg.LogFileName, "', error: ", err)
+	}
+
+	dns := getDNS(cfg.Database)
+	err = database.ConnectWithDatabase(dns)
+	if err != nil {
+		logger.Logger.Fatal("Can not connect to database, error:", err)
+	}
 
 	addr := cfg.Address + ":" + strconv.Itoa(cfg.Port)
-	logger.Print("Server start on: ", addr)
+	logger.Logger.Print("Server start on: ", addr)
 	router := newRouter()
 
-	logger.Fatal(http.ListenAndServe(addr, router))
+	logger.Logger.Fatal(http.ListenAndServe(addr, router))
 }
 
 func prepareConfig(filename string) (cfg config, err error) {
@@ -61,11 +80,7 @@ func getConfigFileName() string {
 	return configFile
 }
 
-func setLogger(logFileName string) {
-	outputFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatal("Can not open log file '", logFileName, "', error: ", err)
-	}
-	logger = log.New(outputFile, "", log.Lshortfile)
-	logger.SetOutput(io.MultiWriter(os.Stdout, outputFile))
+func getDNS(databaseCfg databaseCfg) string {
+	return databaseCfg.User + ":" + databaseCfg.Password + "@tcp(" +
+		databaseCfg.Host + ":" + strconv.Itoa(databaseCfg.Port) + ")/" + databaseCfg.DBName
 }

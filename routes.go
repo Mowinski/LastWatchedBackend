@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Mowinski/LastWatchedBackend/handlers"
+	"github.com/Mowinski/LastWatchedBackend/logger"
 	"github.com/gorilla/mux"
 )
 
@@ -17,7 +18,7 @@ type route struct {
 
 func newRouter() *mux.Router {
 	routes := []route{
-		route{"Index", "GET", "/", movies.IndexHandler},
+		route{"MovieList", "GET", "/movies", movies.MovieListHandler},
 	}
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -39,7 +40,7 @@ func loggerHandler(inner http.Handler, name string) http.Handler {
 
 		inner.ServeHTTP(w, r)
 
-		logger.Printf(
+		logger.Logger.Printf(
 			"%s\t%s\t%s\t%s",
 			r.Method,
 			r.RequestURI,
