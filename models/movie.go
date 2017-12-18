@@ -14,12 +14,20 @@ type MovieItems []MovieItem
 
 // MovieDetail descrbie details about selected movie series
 type MovieDetail struct {
-	ID                       int
+	ID                       int64
 	Name                     string
 	URL                      string
 	SeriesCount              int
 	LastWatchedEpisode       Episode
 	DateOfLastWatchedEpisode time.Time
+}
+
+// MovieCreationPayload describe information necessary to create movie object in database
+type MovieCreationPayload struct {
+	MovieName        string
+	URL              string
+	SeriesNumber     int
+	EpisodesInSeries int
 }
 
 // Episode describe one episode

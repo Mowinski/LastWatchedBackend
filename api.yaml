@@ -1,0 +1,239 @@
+swagger: '2.0'
+info:
+  description: This is simple API for Movie APP
+  version: "1.0.0"
+  title: Movie API
+  # put the contact info for your development or API team
+  contact:
+    email: kamil.mowinski@vulpesoft.pl
+
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+
+# tags are used for organizing operations
+tags:
+- name: movie
+  description: Operations on movie
+- name: series
+  description: Operations on series
+
+paths:
+  /movies:
+    get:
+      tags:
+      - movie
+      summary: get movie list from backend
+      operationId: movieList
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: searchString
+        description: pass an optional search string for looking up inventory
+        required: false
+        type: string
+      - in: query
+        name: skip
+        description: number of records to skip for pagination
+        type: integer
+        format: int32
+        minimum: 0
+      - in: query
+        name: limit
+        description: maximum number of records to return
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 50
+      responses:
+        200:
+          description: search results matching criteria
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/MovieItem'
+        400:
+          description: bad input parameter
+  /movie/{id}:
+    get:
+      tags:
+      - movie
+      summary: get details about movie
+      operationId: movieDetails
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: id
+        description: id of movie
+        required: true
+        type: number
+      responses:
+        200:
+          description: details with movie
+          schema:
+            $ref: '#/definitions/MovieDetails'
+        404:
+          description: movie can not found
+    put:
+      tags:
+      - movie
+      summary: update selected movie
+      operationId: updateMovie
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: id
+        description: id of movie
+        required: true
+        type: number
+      - in: body
+        name: movie
+        description: New data for movie.
+        schema:
+          $ref: '#/definitions/MoviePayload'
+      responses:
+        200:
+          description: movie updated
+          schema:
+            $ref: '#/definitions/MovieDetails'
+        400:
+          description: can not update movie
+        404:
+          description: move can not found
+    delete:
+      tags:
+      - movie
+      summary: delete selected movie with series
+      operationId: deleteMovie
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: id
+        description: id of movie
+        required: true
+        type: number
+      responses:
+        200:
+          description: movie deleted
+        400:
+          description: can not delete movie
+        404:
+          description: movie can not found
+  /movie:
+    post:
+      tags:
+      - movie
+      summary: create new movie
+      operationId: newMovie
+      produces:
+      - application/json
+      consumes:
+      - application/json
+      parameters:
+        - in: body
+          name: movie
+          description: The movie to create.
+          schema:
+            $ref: '#/definitions/MoviePayload'
+      responses:
+        200:
+          description: movie created
+          schema:
+            $ref: '#/definitions/MovieDetails'
+        400:
+          description: occure error during create new movie
+
+definitions:
+  MovieItem:
+    type: object
+    required:
+    - id
+    - name
+    - url
+    properties:
+      id:
+        type: number
+        example: 15
+      name:
+        type: string
+        example: Marvel Agent of S.H.I.E.L.D
+      url:
+        type: string
+        format: url
+        example: www.google.com/marvel
+  MovieDetails:
+    type: object
+    required:
+    - id
+    - name
+    - url
+    - seriesCount
+    - lastWatchedEpisode
+    - dateOfLastWatchedEpisode
+    properties:
+      id:
+        type: number
+        example: 15
+      name:
+        type: string
+        example: Marvel Agent of S.H.I.E.L.D
+      url:
+        type: string
+        format: url
+        example: www.google.com/marvel
+      seriesCount:
+        type: number
+        example: 30
+      lastWatchedEpisode:
+        $ref: '#/definitions/Episode'
+      dateOfLastWatchedEpisode:
+        type: string
+        format: date
+  Episode:
+    type: object
+    required:
+    - id
+    - series
+    - episodeNumber
+    properties:
+      id:
+        type: number
+        example: 13
+      series:
+        type: number
+        example: 2
+      episodeNumber:
+        type: number
+        example: 4
+  MoviePayload:
+    type: object
+    required:
+    - movieName
+    properties:
+      movieName:
+        type: string
+        example: Marvel Runaways
+      url:
+        type: string
+        format: url
+        example: www.google.com/url
+      seriesNumber:
+        type: number
+        example: 1
+      episodesInSeries:
+        type: number
+        example: 10
+# Added by API Auto Mocking Plugin
+# host: movie.vulpesoft.pl
+basePath: /Vulpesoft/Movie/1.0.0
+# schemes:
+#  - http
+# Added by API Auto Mocking Plugin
+host: virtserver.swaggerhub.com
+schemes:
+ - https
+ - http

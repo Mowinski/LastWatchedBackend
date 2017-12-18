@@ -18,6 +18,7 @@ import (
 
 var movieListRows *sqlmock.Rows
 var movieDetailRow *sqlmock.Rows
+var movieDetailLastWatched *sqlmock.Rows
 
 func setup(t *testing.T) sqlmock.Sqlmock {
 	movieListRows = sqlmock.NewRows([]string{"id", "name", "url"}).
@@ -26,6 +27,8 @@ func setup(t *testing.T) sqlmock.Sqlmock {
 
 	movieDetailRow = sqlmock.NewRows([]string{"id", "name", "url", "seriesCount"}).
 		AddRow(1, "Test Movie 1", "http://www.example.com/movie1", 5)
+	movieDetailLastWatched = sqlmock.NewRows([]string{"id", "id", "number", "date"}).
+		AddRow(1, 1, 4, "2017-01-02 18:42:20")
 
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -151,9 +154,13 @@ func TestMovieListHandlerError(t *testing.T) {
 func TestMovieDetailsHanlder(t *testing.T) {
 	mock := setup(t)
 
-	mock.ExpectQuery("(.+)").
+	mock.ExpectQuery("SELECT tv_series.id, tv_series.name, url(.+)").
 		WithArgs(1).
 		WillReturnRows(movieDetailRow)
+
+	mock.ExpectQuery("SELECT episode.id, season.id, episode.number, episode.date (.+)").
+		WithArgs().
+		WillReturnRows(movieDetailLastWatched)
 
 	req, _ := http.NewRequest("GET", "/movie/1", nil)
 	res := httptest.NewRecorder()

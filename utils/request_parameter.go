@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"encoding/json"
+	"io"
 	"strconv"
 )
 
@@ -14,4 +16,12 @@ func GetIntOrDefault(value string, defaultValue int) int {
 		return defaultValue
 	}
 	return ret
+}
+
+// GetJSONParameters ...
+func GetJSONParameters(body io.ReadCloser, out interface{}) error {
+	decoder := json.NewDecoder(body)
+	err := decoder.Decode(&out)
+	defer body.Close()
+	return err
 }

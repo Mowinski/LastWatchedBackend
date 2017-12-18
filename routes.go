@@ -20,6 +20,7 @@ func newRouter() *mux.Router {
 	routes := []route{
 		route{"MovieList", "GET", "/movies", movies.MovieListHandler},
 		route{"MovieDetail", "GET", "/movie/{id:[0-9]+}", movies.MovieDetailsHanlder},
+		route{"MovieCreate", "POST", "/movie", movies.MovieCreateHandler},
 	}
 
 	router := mux.NewRouter().StrictSlash(true)

@@ -82,5 +82,5 @@ func getConfigFileName() string {
 
 func getDNS(databaseCfg databaseCfg) string {
 	return databaseCfg.User + ":" + databaseCfg.Password + "@tcp(" +
-		databaseCfg.Host + ":" + strconv.Itoa(databaseCfg.Port) + ")/" + databaseCfg.DBName
+		databaseCfg.Host + ":" + strconv.Itoa(databaseCfg.Port) + ")/" + databaseCfg.DBName + "?parseTime=true"
 }
