@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Mowinski/LastWatchedBackend/logger"
+	"github.com/gorilla/mux"
 
 	"github.com/Mowinski/LastWatchedBackend/database"
 	"github.com/Mowinski/LastWatchedBackend/models"
@@ -16,11 +17,15 @@ import (
 )
 
 var movieListRows *sqlmock.Rows
+var movieDetailRow *sqlmock.Rows
 
 func setup(t *testing.T) sqlmock.Sqlmock {
 	movieListRows = sqlmock.NewRows([]string{"id", "name", "url"}).
 		AddRow(1, "Test Movie 1", "http://www.example.com/movie1").
 		AddRow(2, "Test Movie 2", "http://www.example.com/movie2")
+
+	movieDetailRow = sqlmock.NewRows([]string{"id", "name", "url", "seriesCount"}).
+		AddRow(1, "Test Movie 1", "http://www.example.com/movie1", 5)
 
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -130,6 +135,70 @@ func TestMovieListHandlerError(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	MovieListHandler(res, req)
+
+	if res.Code != 400 {
+		t.Errorf("Wrong status code, expected 400, got %d", res.Code)
+	}
+
+	var errorMsg map[string]string
+	json.Unmarshal(res.Body.Bytes(), &errorMsg)
+
+	if errorMsg["error"] != "Test error" {
+		t.Errorf("Wrong error message, expected 'Test error', got: %s", errorMsg["error"])
+	}
+}
+
+func TestMovieDetailsHanlder(t *testing.T) {
+	mock := setup(t)
+
+	mock.ExpectQuery("(.+)").
+		WithArgs(1).
+		WillReturnRows(movieDetailRow)
+
+	req, _ := http.NewRequest("GET", "/movie/1", nil)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", MovieDetailsHanlder).Methods("GET")
+	m.ServeHTTP(res, req)
+
+	if res.Code != 200 {
+		t.Errorf("Wrong status code, expected 200, got %d", res.Code)
+	}
+
+	var movieDetail models.MovieDetail
+	json.Unmarshal(res.Body.Bytes(), &movieDetail)
+
+	if movieDetail.ID != 1 {
+		t.Errorf("Wrong ID, expected 1, got %d", movieDetail.ID)
+	}
+
+	if movieDetail.Name != "Test Movie 1" {
+		t.Errorf("Wrong movie name, expected 'Test Movie 1', got %s", movieDetail.Name)
+	}
+
+	if movieDetail.URL != "http://www.example.com/movie1" {
+		t.Errorf("Wrong movie url, expected 'http://www.example.com/movie1', got %s", movieDetail.URL)
+	}
+
+	if movieDetail.SeriesCount != 5 {
+		t.Errorf("Wrong movie series count, expected 5, got %d", movieDetail.SeriesCount)
+	}
+}
+
+func TestMovieDetailsHanlderError(t *testing.T) {
+	mock := setup(t)
+
+	mock.ExpectQuery("(.+)").
+		WithArgs(1).
+		WillReturnError(fmt.Errorf("Test error"))
+
+	req, _ := http.NewRequest("GET", "/movie/1", nil)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", MovieDetailsHanlder).Methods("GET")
+	m.ServeHTTP(res, req)
 
 	if res.Code != 400 {
 		t.Errorf("Wrong status code, expected 400, got %d", res.Code)

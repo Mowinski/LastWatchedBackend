@@ -19,6 +19,7 @@ type route struct {
 func newRouter() *mux.Router {
 	routes := []route{
 		route{"MovieList", "GET", "/movies", movies.MovieListHandler},
+		route{"MovieDetail", "GET", "/movie/{id:[0-9]+}", movies.MovieDetailsHanlder},
 	}
 
 	router := mux.NewRouter().StrictSlash(true)
