@@ -1,7 +1,7 @@
 package movies
 
 import (
-	"strconv"
+	"database/sql"
 
 	"github.com/Mowinski/LastWatchedBackend/database"
 	"github.com/Mowinski/LastWatchedBackend/models"
@@ -63,7 +63,7 @@ func createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail,
 		return movie, err
 	}
 
-	stmt, err := conn.Prepare("INSERT INTO tv_series (name, url) VALUES (?, ?);")
+	stmt, err := tx.Prepare("INSERT INTO tv_series (name, url) VALUES (?, ?);")
 	if err != nil {
 		return movie, err
 	}
@@ -77,13 +77,43 @@ func createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail,
 		return movie, err
 	}
 
-	for i := 1; i <= payload.SeriesNumber; i++ {
-		_, err := conn.Query("INSERT INTO season (serial_id, name) VALUES (?, ?)", movieID, "Sezon "+strconv.Itoa(i))
+	for seriesNumber := 1; seriesNumber <= payload.SeriesNumber; seriesNumber++ {
+		seriesID, err := executeStmt(tx, "INSERT INTO season (serial_id, number) VALUES (?, ?)", movieID, seriesNumber)
 		if err != nil {
 			tx.Rollback()
 			return movie, err
 		}
+		for episodeNumber := 1; episodeNumber <= payload.EpisodesInSeries; episodeNumber++ {
+			_, err := executeStmt(
+				tx,
+				"INSERT INTO episode (season_id, number, watched, date) VALUES (?, ?, 0, null);",
+				seriesID,
+				episodeNumber,
+			)
+			if err != nil {
+				tx.Rollback()
+				return movie, err
+			}
+		}
 	}
 	tx.Commit()
 	return retriveMovieDetail(movieID)
+}
+
+func executeStmt(tx *sql.Tx, query string, args ...interface{}) (id int64, err error) {
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return id, err
+	}
+
+	rows, err := stmt.Exec(args...)
+	if err != nil {
+		return id, err
+	}
+
+	id, err = rows.LastInsertId()
+	if err != nil {
+		return id, err
+	}
+	return id, nil
 }

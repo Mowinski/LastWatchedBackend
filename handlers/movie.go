@@ -29,7 +29,7 @@ func MovieListHandler(w http.ResponseWriter, r *http.Request) {
 
 // MovieDetailsHanlder is responsive for return movie detials
 func MovieDetailsHanlder(w http.ResponseWriter, r *http.Request) {
-	movieID, _ := strconv.Atoi(mux.Vars(r)["id"])
+	movieID, _ := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 
 	movie, err := retriveMovieDetail(movieID)
 	if err != nil {
@@ -48,4 +48,11 @@ func MovieCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	movie, err := createMovie(payload)
+	if err != nil {
+		utils.ResponseBadRequestError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, movie)
 }
