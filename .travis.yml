@@ -1,0 +1,13 @@
+language: go
+
+go:
+  - 1.x
+  - 1.7.x
+  - 1.9
+  - master
+
+script:
+  - ./go.test.sh
+before_script: go get -t ./...
+after_success:
+  - bash <(curl -s https://codecov.io/bash) -t 8c44837d-0ead-470d-9874-19da72b6466f
