@@ -63,16 +63,13 @@ func createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail,
 		return movie, err
 	}
 
-	stmt, err := tx.Prepare("INSERT INTO tv_series (name, url) VALUES (?, ?);")
-	if err != nil {
-		return movie, err
-	}
-	rows, err := stmt.Exec(payload.MovieName, payload.URL)
-	if err != nil {
-		return movie, err
-	}
+	movieID, err := executeStmt(
+		tx,
+		"INSERT INTO tv_series (name, url) VALUES (?, ?);",
+		payload.MovieName,
+		payload.URL,
+	)
 
-	movieID, err := rows.LastInsertId()
 	if err != nil {
 		return movie, err
 	}

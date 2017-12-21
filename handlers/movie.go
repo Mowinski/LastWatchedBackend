@@ -12,8 +12,18 @@ import (
 	"github.com/Mowinski/LastWatchedBackend/utils"
 )
 
+// Utils interface describe all utility function in handlers
+type Utils interface {
+	createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error)
+}
+
+// MovieHandlers join together all movie handlers
+type MovieHandlers struct {
+	utils Utils
+}
+
 // MovieListHandler is responsive for return movie list
-func MovieListHandler(w http.ResponseWriter, r *http.Request) {
+func (mh MovieHandlers) MovieListHandler(w http.ResponseWriter, r *http.Request) {
 	searchString := "%" + r.URL.Query().Get("searchString") + "%"
 
 	skip := utils.GetIntOrDefault(r.URL.Query().Get("skip"), 0)
@@ -28,7 +38,7 @@ func MovieListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // MovieDetailsHanlder is responsive for return movie detials
-func MovieDetailsHanlder(w http.ResponseWriter, r *http.Request) {
+func (mh MovieHandlers) MovieDetailsHanlder(w http.ResponseWriter, r *http.Request) {
 	movieID, _ := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 
 	movie, err := retriveMovieDetail(movieID)
@@ -40,7 +50,7 @@ func MovieDetailsHanlder(w http.ResponseWriter, r *http.Request) {
 }
 
 // MovieCreateHandler create new movie in database
-func MovieCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (mh MovieHandlers) MovieCreateHandler(w http.ResponseWriter, r *http.Request) {
 	var payload models.MovieCreationPayload
 	err := utils.GetJSONParameters(r.Body, &payload)
 	if err != nil {
@@ -48,7 +58,7 @@ func MovieCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	movie, err := createMovie(payload)
+	movie, err := mh.utils.createMovie(payload)
 	if err != nil {
 		utils.ResponseBadRequestError(w, err)
 		return

@@ -17,10 +17,11 @@ type route struct {
 }
 
 func newRouter() *mux.Router {
+	var movieHandler movies.MovieHandlers
 	routes := []route{
-		route{"MovieList", "GET", "/movies", movies.MovieListHandler},
-		route{"MovieDetail", "GET", "/movie/{id:[0-9]+}", movies.MovieDetailsHanlder},
-		route{"MovieCreate", "POST", "/movie", movies.MovieCreateHandler},
+		route{"MovieList", "GET", "/movies", movieHandler.MovieListHandler},
+		route{"MovieDetail", "GET", "/movie/{id:[0-9]+}", movieHandler.MovieDetailsHanlder},
+		route{"MovieCreate", "POST", "/movie", movieHandler.MovieCreateHandler},
 	}
 
 	router := mux.NewRouter().StrictSlash(true)

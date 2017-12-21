@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/Mowinski/LastWatchedBackend/logger"
 	"github.com/gorilla/mux"
@@ -16,9 +17,33 @@ import (
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
+type movieBodyPayload string
+type MovieUtilsMocked struct{}
+
+func (m movieBodyPayload) Read(p []byte) (n int, err error) {
+	copy(p, m)
+	return len(m), nil
+}
+func (m movieBodyPayload) Close() error {
+	return nil
+}
+
+func (mh MovieUtilsMocked) createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
+	movie.ID = 1
+	movie.Name = "Test movie"
+	movie.URL = "http://www.example.com/test-movie"
+	movie.DateOfLastWatchedEpisode = time.Now()
+	movie.LastWatchedEpisode.ID = 2
+	movie.LastWatchedEpisode.Series = 3
+	movie.LastWatchedEpisode.EpisodeNumber = 3
+	return movie, nil
+}
+
 var movieListRows *sqlmock.Rows
 var movieDetailRow *sqlmock.Rows
 var movieDetailLastWatched *sqlmock.Rows
+var movieCreatePayload movieBodyPayload
+var movieHandlers MovieHandlers
 
 func setup(t *testing.T) sqlmock.Sqlmock {
 	movieListRows = sqlmock.NewRows([]string{"id", "name", "url"}).
@@ -29,11 +54,14 @@ func setup(t *testing.T) sqlmock.Sqlmock {
 		AddRow(1, "Test Movie 1", "http://www.example.com/movie1", 5)
 	movieDetailLastWatched = sqlmock.NewRows([]string{"id", "id", "number", "date"}).
 		AddRow(1, 1, 4, "2017-01-02 18:42:20")
+	movieCreatePayload = "{\"movieName\":\"Marvel Runaways\",\"url\":\"www.google.com/url\",\"seriesNumber\":1,\"episodesInSeries\":10}"
 
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
+	var mh MovieUtilsMocked
+	movieHandlers.utils = mh
 
 	database.SetDBConn(db)
 
@@ -85,7 +113,7 @@ func TestMovieListHandler(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/movies", nil)
 	res := httptest.NewRecorder()
 
-	MovieListHandler(res, req)
+	movieHandlers.MovieListHandler(res, req)
 
 	if res.Code != 200 {
 		t.Errorf("Wrong status code, expected 200, got %d", res.Code)
@@ -137,7 +165,7 @@ func TestMovieListHandlerError(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/movies", nil)
 	res := httptest.NewRecorder()
 
-	MovieListHandler(res, req)
+	movieHandlers.MovieListHandler(res, req)
 
 	if res.Code != 400 {
 		t.Errorf("Wrong status code, expected 400, got %d", res.Code)
@@ -166,7 +194,7 @@ func TestMovieDetailsHanlder(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	m := mux.NewRouter()
-	m.HandleFunc("/movie/{id}", MovieDetailsHanlder).Methods("GET")
+	m.HandleFunc("/movie/{id}", movieHandlers.MovieDetailsHanlder).Methods("GET")
 	m.ServeHTTP(res, req)
 
 	if res.Code != 200 {
@@ -204,7 +232,7 @@ func TestMovieDetailsHanlderError(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	m := mux.NewRouter()
-	m.HandleFunc("/movie/{id}", MovieDetailsHanlder).Methods("GET")
+	m.HandleFunc("/movie/{id}", movieHandlers.MovieDetailsHanlder).Methods("GET")
 	m.ServeHTTP(res, req)
 
 	if res.Code != 400 {
@@ -216,5 +244,40 @@ func TestMovieDetailsHanlderError(t *testing.T) {
 
 	if errorMsg["error"] != "Test error" {
 		t.Errorf("Wrong error message, expected 'Test error', got: %s", errorMsg["error"])
+	}
+}
+
+func TestMovieCreateHandler(t *testing.T) {
+	setup(t)
+	req, _ := http.NewRequest("POST", "/movie", nil)
+	res := httptest.NewRecorder()
+	req.Body = movieCreatePayload
+
+	movieHandlers.MovieCreateHandler(res, req)
+
+	if res.Code != 200 {
+		t.Errorf("Wrong status code, expected 200, got %d", res.Code)
+	}
+
+	var movieDetail models.MovieDetail
+	json.Unmarshal(res.Body.Bytes(), &movieDetail)
+
+	if movieDetail.ID != 1 {
+		t.Errorf("Wrong movie id, expected 1, got %d", movieDetail.ID)
+	}
+	if movieDetail.Name != "Test movie" {
+		t.Errorf("Wrong movie name, expected 'Test movie', got %s", movieDetail.Name)
+	}
+	if movieDetail.URL != "http://www.example.com/test-movie" {
+		t.Errorf("Wrong movie URL, expected 'http://www.example.com/test-movie', got %s", movieDetail.URL)
+	}
+	if movieDetail.LastWatchedEpisode.ID != 2 {
+		t.Errorf("Wrong last watched episode ID, expected 2, got %d", movieDetail.LastWatchedEpisode.ID)
+	}
+	if movieDetail.LastWatchedEpisode.Series != 3 {
+		t.Errorf("Wrong last watched episode series, expected 3, got %d", movieDetail.LastWatchedEpisode.Series)
+	}
+	if movieDetail.LastWatchedEpisode.EpisodeNumber != 3 {
+		t.Errorf("Wrong last watched episode, expected 3, got %d", movieDetail.LastWatchedEpisode.EpisodeNumber)
 	}
 }
