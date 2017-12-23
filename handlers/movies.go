@@ -2,6 +2,7 @@
 package movies
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 
@@ -15,11 +16,12 @@ import (
 // Utils interface describe all utility function in handlers
 type Utils interface {
 	createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error)
+	GetJSONParameters(body io.ReadCloser, out interface{}) error
 }
 
 // MovieHandlers join together all movie handlers
 type MovieHandlers struct {
-	utils Utils
+	Utils Utils
 }
 
 // MovieListHandler is responsive for return movie list
@@ -52,13 +54,13 @@ func (mh MovieHandlers) MovieDetailsHanlder(w http.ResponseWriter, r *http.Reque
 // MovieCreateHandler create new movie in database
 func (mh MovieHandlers) MovieCreateHandler(w http.ResponseWriter, r *http.Request) {
 	var payload models.MovieCreationPayload
-	err := utils.GetJSONParameters(r.Body, &payload)
+	err := mh.Utils.GetJSONParameters(r.Body, &payload)
 	if err != nil {
 		utils.ResponseBadRequestError(w, err)
 		return
 	}
 
-	movie, err := mh.utils.createMovie(payload)
+	movie, err := mh.Utils.createMovie(payload)
 	if err != nil {
 		utils.ResponseBadRequestError(w, err)
 		return
