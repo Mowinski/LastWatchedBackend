@@ -202,3 +202,121 @@ func TestCreateMovie(t *testing.T) {
 		t.Errorf("Wrong movie series count, expected 5, got %d", movieDetail.SeriesCount)
 	}
 }
+
+func TestCreateMovieFailTransaction(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+
+	mock.ExpectBegin().WillReturnError(fmt.Errorf("Transaction start error"))
+
+	payload := models.MovieCreationPayload{
+		MovieName:        "Test movie",
+		URL:              "http://www.example.com",
+		SeriesNumber:     2,
+		EpisodesInSeries: 1,
+	}
+
+	movieDetail, err := createMovie(payload)
+
+	if err.Error() != "Transaction start error" {
+		t.Errorf("Wrong error, expected 'Transaction start error', got %s", err)
+	}
+
+	if movieDetail.ID != 0 {
+		t.Error("Movie was created when error occure")
+	}
+}
+
+func TestCreateMovieFailCreateSeries(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare("INSERT INTO tv_series (.+)")
+	mock.ExpectExec("(.)+").
+		WillReturnError(fmt.Errorf("Test error durring create tv_series"))
+
+	payload := models.MovieCreationPayload{
+		MovieName:        "Test movie",
+		URL:              "http://www.example.com",
+		SeriesNumber:     2,
+		EpisodesInSeries: 1,
+	}
+
+	movieDetail, err := createMovie(payload)
+
+	if err.Error() != "Test error durring create tv_series" {
+		t.Errorf("Wrong error, expected 'Test error durring create tv_series', got %s", err)
+	}
+
+	if movieDetail.ID != 0 {
+		t.Error("Movie was created when error occure")
+	}
+}
+
+func TestCreateMovieFailCreateSeason(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare("INSERT INTO tv_series (.+)")
+	mock.ExpectExec("(.)+").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	mock.ExpectPrepare("INSERT INTO season (.+)")
+	mock.ExpectExec("(.)+").
+		WillReturnError(fmt.Errorf("Test error durring create season"))
+	mock.ExpectRollback()
+
+	payload := models.MovieCreationPayload{
+		MovieName:        "Test movie",
+		URL:              "http://www.example.com",
+		SeriesNumber:     2,
+		EpisodesInSeries: 1,
+	}
+
+	movieDetail, err := createMovie(payload)
+
+	if err.Error() != "Test error durring create season" {
+		t.Errorf("Wrong error, expected 'Test error durring create season', got %s", err)
+	}
+
+	if movieDetail.ID != 0 {
+		t.Error("Movie was created when error occure")
+	}
+}
+
+func TestCreateMovieFailCreateEpisode(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+
+	mock.ExpectBegin()
+	// Create movie
+	mock.ExpectPrepare("INSERT INTO tv_series (.+)")
+	mock.ExpectExec("(.)+").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	// Create season 1
+	mock.ExpectPrepare("INSERT INTO season (.+)")
+	mock.ExpectExec("(.)+").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	// Create episode
+	mock.ExpectPrepare("INSERT INTO episode (.+)")
+	mock.ExpectExec("(.)+").
+		WithArgs(1, 1).
+		WillReturnError(fmt.Errorf("Test error during create episode"))
+
+	mock.ExpectRollback()
+
+	payload := models.MovieCreationPayload{
+		MovieName:        "Test movie",
+		URL:              "http://www.example.com",
+		SeriesNumber:     2,
+		EpisodesInSeries: 1,
+	}
+
+	movieDetail, err := createMovie(payload)
+
+	if err.Error() != "Test error during create episode" {
+		t.Errorf("Wrong error, expected 'Test error during create episode', got %s", err)
+	}
+
+	if movieDetail.ID != 0 {
+		t.Error("Movie was created when error occure")
+	}
+}
