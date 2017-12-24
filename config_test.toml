@@ -1,0 +1,10 @@
+log_file_name = "server.log"
+address = "127.0.0.1"
+port = 8080
+
+[database]
+host = "localhost"
+port = 3306
+user = "movie_user"
+password = "secret"
+dbname = "movie_test_db"
