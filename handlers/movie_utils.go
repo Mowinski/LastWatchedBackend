@@ -55,7 +55,7 @@ func retriveMovieDetail(movieID int64) (movie models.MovieDetail, err error) {
 	return movie, err
 }
 
-func createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
+func CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
 	conn := database.GetDBConn()
 
 	tx, err := conn.Begin()

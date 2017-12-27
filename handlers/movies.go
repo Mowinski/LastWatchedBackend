@@ -15,7 +15,7 @@ import (
 
 // Utils interface describe all utility function in handlers
 type Utils interface {
-	createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error)
+	CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error)
 	GetJSONParameters(body io.ReadCloser, out interface{}) error
 }
 
@@ -60,7 +60,7 @@ func (mh MovieHandlers) MovieCreateHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	movie, err := mh.Utils.createMovie(payload)
+	movie, err := mh.Utils.CreateMovie(payload)
 	if err != nil {
 		utils.ResponseBadRequestError(w, err)
 		return

@@ -7,7 +7,7 @@ import (
 
 	"github.com/Mowinski/LastWatchedBackend/database"
 	"github.com/Mowinski/LastWatchedBackend/models"
-	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
 type movieTestInternalsData struct {
@@ -180,7 +180,7 @@ func TestCreateMovie(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := createMovie(payload)
+	movieDetail, err := CreateMovie(payload)
 
 	if err != nil {
 		t.Errorf("Unexpected error, got %s", err)
@@ -215,7 +215,7 @@ func TestCreateMovieFailTransaction(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := createMovie(payload)
+	movieDetail, err := CreateMovie(payload)
 
 	if err.Error() != "Transaction start error" {
 		t.Errorf("Wrong error, expected 'Transaction start error', got %s", err)
@@ -241,7 +241,7 @@ func TestCreateMovieFailCreateSeries(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := createMovie(payload)
+	movieDetail, err := CreateMovie(payload)
 
 	if err.Error() != "Test error durring create tv_series" {
 		t.Errorf("Wrong error, expected 'Test error durring create tv_series', got %s", err)
@@ -272,7 +272,7 @@ func TestCreateMovieFailCreateSeason(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := createMovie(payload)
+	movieDetail, err := CreateMovie(payload)
 
 	if err.Error() != "Test error durring create season" {
 		t.Errorf("Wrong error, expected 'Test error durring create season', got %s", err)
@@ -310,7 +310,7 @@ func TestCreateMovieFailCreateEpisode(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := createMovie(payload)
+	movieDetail, err := CreateMovie(payload)
 
 	if err.Error() != "Test error during create episode" {
 		t.Errorf("Wrong error, expected 'Test error during create episode', got %s", err)

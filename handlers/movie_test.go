@@ -1,8 +1,12 @@
-package movies
+package movies_test
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Mowinski/LastWatchedBackend/database"
+	"github.com/Mowinski/LastWatchedBackend/logger"
+	"github.com/Mowinski/LastWatchedBackend/models"
+	"github.com/Mowinski/LastWatchedBackend/utils"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,12 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mowinski/LastWatchedBackend/database"
-	"github.com/Mowinski/LastWatchedBackend/logger"
-	"github.com/Mowinski/LastWatchedBackend/models"
-	"github.com/Mowinski/LastWatchedBackend/utils"
+	"github.com/Mowinski/LastWatchedBackend/handlers"
 	"github.com/gorilla/mux"
-	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
 type movieBodyPayload string
@@ -30,9 +31,9 @@ type movieTestHandlerData struct {
 	movieDetailLastWatched *sqlmock.Rows
 
 	movieCreatePayload           movieBodyPayload
-	movieSuccessHandlers         MovieHandlers
-	movieCreateFailedHandlers    MovieHandlers
-	movieJSONParseFailedHandlers MovieHandlers
+	movieSuccessHandlers         movies.MovieHandlers
+	movieCreateFailedHandlers    movies.MovieHandlers
+	movieJSONParseFailedHandlers movies.MovieHandlers
 }
 
 func (m movieBodyPayload) Read(p []byte) (n int, err error) {
@@ -43,7 +44,7 @@ func (m movieBodyPayload) Close() error {
 	return nil
 }
 
-func (mh MovieUtilsSuccessMocked) createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
+func (mh MovieUtilsSuccessMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
 	movie.ID = 1
 	movie.Name = "Test movie"
 	movie.URL = "http://www.example.com/test-movie"
@@ -54,11 +55,11 @@ func (mh MovieUtilsSuccessMocked) createMovie(payload models.MovieCreationPayloa
 	return movie, nil
 }
 
-func (mh MovieUtilsCreateFailedMocked) createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
+func (mh MovieUtilsCreateFailedMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
 	return movie, fmt.Errorf("Test error durring create movie")
 }
 
-func (mh MovieUtilsJSONParseFailedMocked) createMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
+func (mh MovieUtilsJSONParseFailedMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
 	return movie, fmt.Errorf("Test error durring create movie")
 }
 
@@ -91,12 +92,12 @@ func setup(t *testing.T) (sqlmock.Sqlmock, movieTestHandlerData) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	var utils MovieUtilsSuccessMocked
+	var successUtils MovieUtilsSuccessMocked
 	var failedUtils MovieUtilsCreateFailedMocked
 	var jsonFailedUtils MovieUtilsJSONParseFailedMocked
-	testData.movieSuccessHandlers = MovieHandlers{Utils: utils}
-	testData.movieCreateFailedHandlers = MovieHandlers{Utils: failedUtils}
-	testData.movieJSONParseFailedHandlers = MovieHandlers{Utils: jsonFailedUtils}
+	testData.movieSuccessHandlers = movies.MovieHandlers{Utils: successUtils}
+	testData.movieCreateFailedHandlers = movies.MovieHandlers{Utils: failedUtils}
+	testData.movieJSONParseFailedHandlers = movies.MovieHandlers{Utils: jsonFailedUtils}
 	database.SetDBConn(db)
 
 	return mock, testData
