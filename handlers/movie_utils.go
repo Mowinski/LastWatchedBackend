@@ -3,10 +3,11 @@ package movies
 import (
 	"database/sql"
 
+	"io"
+
 	"github.com/Mowinski/LastWatchedBackend/database"
 	"github.com/Mowinski/LastWatchedBackend/models"
 	"github.com/Mowinski/LastWatchedBackend/utils"
-	"io"
 )
 
 func retrieveMovieItems(searchString string, limit int, skip int) (movies models.MovieItems, err error) {
@@ -51,7 +52,7 @@ func retrieveMovieDetail(movieID int64) (movie models.MovieDetail, err error) {
 	rows.Next()
 	err = rows.Scan(&movie.LastWatchedEpisode.ID, &movie.LastWatchedEpisode.Series, &movie.LastWatchedEpisode.EpisodeNumber, &movie.DateOfLastWatchedEpisode)
 	if err != nil {
-		return movie, nil
+		return movie, err
 	}
 
 	return movie, err
@@ -124,7 +125,7 @@ func (mh MovieHandlers) UpdateMovie(movieID int64, payload models.MovieUpdatePay
 
 	tx, err := conn.Begin()
 	if err != nil {
-		return movie, nil
+		return movie, err
 	}
 
 	_, err = executeStmt(
@@ -132,7 +133,8 @@ func (mh MovieHandlers) UpdateMovie(movieID int64, payload models.MovieUpdatePay
 		"UPDATE tv_series SET name = ?, url = ? WHERE id = ?;",
 		payload.MovieName,
 		payload.URL,
-		movieID)
+		movieID,
+	)
 
 	if err != nil {
 		return movie, err

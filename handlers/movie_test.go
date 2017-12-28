@@ -3,13 +3,15 @@ package movies_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Mowinski/LastWatchedBackend/database"
-	"github.com/Mowinski/LastWatchedBackend/logger"
-	"github.com/Mowinski/LastWatchedBackend/models"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/Mowinski/LastWatchedBackend/database"
+	"github.com/Mowinski/LastWatchedBackend/logger"
+	"github.com/Mowinski/LastWatchedBackend/models"
 
 	"github.com/Mowinski/LastWatchedBackend/handlers"
 	"github.com/gorilla/mux"
@@ -18,6 +20,7 @@ import (
 
 func setup(t *testing.T) (sqlmock.Sqlmock, movieTestHandlerData) {
 	var testData movieTestHandlerData
+	date, _ := time.Parse(time.RFC822Z, "2017-01-02 18:42:20")
 
 	testData.movieListRows = sqlmock.NewRows([]string{"id", "name", "url"}).
 		AddRow(1, "Test Movie 1", "http://www.example.com/movie1").
@@ -26,7 +29,7 @@ func setup(t *testing.T) (sqlmock.Sqlmock, movieTestHandlerData) {
 	testData.movieDetailRow = sqlmock.NewRows([]string{"id", "name", "url", "seriesCount"}).
 		AddRow(1, "Test Movie 1", "http://www.example.com/movie1", 5)
 	testData.movieDetailLastWatched = sqlmock.NewRows([]string{"id", "id", "number", "date"}).
-		AddRow(1, 1, 4, "2017-01-02 18:42:20")
+		AddRow(1, 1, 4, date)
 	testData.movieCreatePayload = "{\"movieName\":\"Marvel Runaways\",\"url\":\"www.google.com/url\",\"seriesNumber\":1,\"episodesInSeries\":10}"
 	testData.movieUpdatePayload = "{\"movieName\":\"Marvel Runaways New\",\"url\":\"www.google.com/new-url\",\"seriesNumber\": 1,\"episodesInSeries\": 10}"
 	db, mock, err := sqlmock.New()
@@ -36,9 +39,12 @@ func setup(t *testing.T) (sqlmock.Sqlmock, movieTestHandlerData) {
 	var successUtils MovieUtilsSuccessMocked
 	var failedUtils MovieUtilsCreateFailedMocked
 	var jsonFailedUtils MovieUtilsJSONParseFailedMocked
+	var jsonUpdateFailedUtils MovieUtilsUpdateMovieFailedMocked
+
 	testData.movieSuccessHandlers = movies.MovieHandlers{Utils: successUtils}
 	testData.movieCreateFailedHandlers = movies.MovieHandlers{Utils: failedUtils}
 	testData.movieJSONParseFailedHandlers = movies.MovieHandlers{Utils: jsonFailedUtils}
+	testData.movieUpdateFailedHandlers = movies.MovieHandlers{Utils: jsonUpdateFailedUtils}
 	database.SetDBConn(db)
 
 	return mock, testData
@@ -300,5 +306,47 @@ func TestMovieUpdateHandler(t *testing.T) {
 
 	if movieDetail.URL != "www.google.com/new-url" {
 		t.Errorf("Wrong movie URL, expected 'www.google.com/new-url', got %s", movieDetail.URL)
+	}
+}
+
+func TestMovieUpdateFailParametersHandler(t *testing.T) {
+	_, testData := setup(t)
+	req, _ := http.NewRequest("PUT", "/movie/1", testData.movieUpdatePayload)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", testData.movieJSONParseFailedHandlers.MovieUpdate).Methods("PUT")
+	m.ServeHTTP(res, req)
+
+	if res.Code != 400 {
+		t.Errorf("Wrong status code, expected 400, got %d", res.Code)
+	}
+
+	var errorMsg map[string]string
+	json.Unmarshal(res.Body.Bytes(), &errorMsg)
+
+	if errorMsg["error"] != "Test error during parsing JSON parameters" {
+		t.Errorf("Wrong error message, expected 'Test error during parsing JSON parameters', got: %s", errorMsg["error"])
+	}
+}
+
+func TestMovieUpdateFailUpdateHandler(t *testing.T) {
+	_, testData := setup(t)
+	req, _ := http.NewRequest("PUT", "/movie/1", testData.movieUpdatePayload)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", testData.movieUpdateFailedHandlers.MovieUpdate).Methods("PUT")
+	m.ServeHTTP(res, req)
+
+	if res.Code != 400 {
+		t.Errorf("Wrong status code, expected 400, got %d", res.Code)
+	}
+
+	var errorMsg map[string]string
+	json.Unmarshal(res.Body.Bytes(), &errorMsg)
+
+	if errorMsg["error"] != "Test error during update movie" {
+		t.Errorf("Wrong error message, expected 'Test error during update movie', got: %s", errorMsg["error"])
 	}
 }

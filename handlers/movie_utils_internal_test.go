@@ -4,20 +4,39 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/Mowinski/LastWatchedBackend/database"
 	"github.com/Mowinski/LastWatchedBackend/models"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
+type jsonBody string
+type testStruct struct {
+	TestID     int    `json:"testID"`
+	TestString string `json:"testString"`
+}
+
+func (jb jsonBody) Read(p []byte) (n int, err error) {
+	copy(p, jb)
+	return len(jb), nil
+}
+
+func (jb jsonBody) Close() error {
+	return nil
+}
+
 type movieTestInternalsData struct {
 	movieListRows          *sqlmock.Rows
 	movieDetailRow         *sqlmock.Rows
 	movieDetailLastWatched *sqlmock.Rows
+	validJSON              jsonBody
+	invalidJSON            jsonBody
 }
 
 func setupInternals(t *testing.T) (*sql.DB, sqlmock.Sqlmock, movieTestInternalsData) {
 	var testData movieTestInternalsData
+	date, _ := time.Parse(time.RFC822Z, "2017-01-02 18:42:20")
 
 	testData.movieListRows = sqlmock.NewRows([]string{"id", "name", "url"}).
 		AddRow(1, "Test Movie 1", "http://www.example.com/movie1").
@@ -26,7 +45,9 @@ func setupInternals(t *testing.T) (*sql.DB, sqlmock.Sqlmock, movieTestInternalsD
 	testData.movieDetailRow = sqlmock.NewRows([]string{"id", "name", "url", "seriesCount"}).
 		AddRow(1, "Test Movie 1", "http://www.example.com/movie1", 5)
 	testData.movieDetailLastWatched = sqlmock.NewRows([]string{"id", "id", "number", "date"}).
-		AddRow(1, 1, 4, "2017-01-02 18:42:20")
+		AddRow(1, 1, 4, date)
+	testData.validJSON = "{\"testID\":1,\"testString\":\"Test string\"}"
+	testData.invalidJSON = "{\"testID\":1,testString: \"Test string with no quotation marks\"}"
 
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -323,5 +344,163 @@ func TestCreateMovieFailCreateEpisode(t *testing.T) {
 
 	if movieDetail.ID != 0 {
 		t.Error("Movie was created when error occure")
+	}
+}
+
+func TestUpdateMovie(t *testing.T) {
+	_, mock, testData := setupInternals(t)
+	var movieHandler MovieHandlers
+
+	mock.ExpectBegin()
+
+	mock.ExpectPrepare("UPDATE tv_series SET (.+)")
+	mock.ExpectExec("(.)+").
+		WithArgs("Test movie", "http://www.example.com", 1).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	mock.ExpectCommit()
+
+	mock.ExpectQuery("SELECT tv_series.id, tv_series.name, url(.+)").
+		WithArgs(1).
+		WillReturnRows(testData.movieDetailRow)
+
+	mock.ExpectQuery("SELECT episode.id, season.id, episode.number, episode.date (.+)").
+		WithArgs().
+		WillReturnRows(testData.movieDetailLastWatched)
+
+	payload := models.MovieUpdatePayload{
+		MovieName:        "Test movie",
+		URL:              "http://www.example.com",
+		SeriesNumber:     2,
+		EpisodesInSeries: 1,
+	}
+
+	movieDetail, err := movieHandler.UpdateMovie(1, payload)
+
+	if err != nil {
+		t.Errorf("Unexpected error, got %s", err)
+	}
+
+	if movieDetail.ID != 1 {
+		t.Errorf("Wrong ID, expected 1, got %d", movieDetail.ID)
+	}
+
+	if movieDetail.Name != "Test Movie 1" {
+		t.Errorf("Wrong movie name, expected 'Test Movie 1', got %s", movieDetail.Name)
+	}
+
+	if movieDetail.URL != "http://www.example.com/movie1" {
+		t.Errorf("Wrong movie url, expected 'http://www.example.com/movie1', got %s", movieDetail.URL)
+	}
+
+	if movieDetail.SeriesCount != 5 {
+		t.Errorf("Wrong movie series count, expected 5, got %d", movieDetail.SeriesCount)
+	}
+}
+
+func TestUpdateMovieFailBeginTransaction(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+	var movieHandler MovieHandlers
+
+	mock.ExpectBegin().WillReturnError(fmt.Errorf("Test error during begin"))
+
+	payload := models.MovieUpdatePayload{
+		MovieName:        "Test movie",
+		URL:              "http://www.example.com",
+		SeriesNumber:     2,
+		EpisodesInSeries: 1,
+	}
+
+	movieDetail, err := movieHandler.UpdateMovie(1, payload)
+
+	if err.Error() != "Test error during begin" {
+		t.Errorf("Expected error 'Test error during begin', got %s", err)
+	}
+
+	if movieDetail.ID != 0 {
+		t.Errorf("Wrong ID, expected 0, got %d", movieDetail.ID)
+	}
+}
+
+func TestUpdateMovieFailExecuteUpdate(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+	var movieHandler MovieHandlers
+
+	mock.ExpectBegin()
+
+	mock.ExpectPrepare("UPDATE tv_series SET (.+)")
+	mock.ExpectExec("(.)+").
+		WithArgs("Test movie", "http://www.example.com", 1).
+		WillReturnError(fmt.Errorf("Test error during update"))
+
+	payload := models.MovieUpdatePayload{
+		MovieName:        "Test movie",
+		URL:              "http://www.example.com",
+		SeriesNumber:     2,
+		EpisodesInSeries: 1,
+	}
+
+	movieDetail, err := movieHandler.UpdateMovie(1, payload)
+
+	if err.Error() != "Test error during update" {
+		t.Errorf("Expected error 'Test error during update', got %s", err)
+	}
+
+	if movieDetail.ID != 0 {
+		t.Errorf("Wrong ID, expected 0, got %d", movieDetail.ID)
+	}
+}
+
+func TestGetJSONParameters(t *testing.T) {
+	_, _, testData := setupInternals(t)
+	var out testStruct
+	var movieHandler MovieHandlers
+
+	err := movieHandler.GetJSONParameters(testData.validJSON, &out)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+
+	if out.TestID != 1 {
+		t.Errorf("Wrong testID, expected 1, got %d", out.TestID)
+	}
+
+	if out.TestString != "Test string" {
+		t.Errorf("Wrong testString, expected 'Test string', got %s", out.TestString)
+	}
+}
+
+func TestGetJSONParametersInvalidJSON(t *testing.T) {
+	_, _, testData := setupInternals(t)
+	var out testStruct
+	var movieHandler MovieHandlers
+
+	err := movieHandler.GetJSONParameters(testData.invalidJSON, &out)
+
+	if err == nil {
+		t.Errorf("Expected error, got nil")
+	}
+}
+
+func TestRetrieveMovieDetail(t *testing.T) {
+	_, mock, testData := setupInternals(t)
+
+	mock.ExpectQuery("SELECT tv_series(.+)").
+		WithArgs(1).
+		WillReturnRows(testData.movieDetailRow)
+
+	mock.ExpectQuery("SELECT episode(.+)").
+		WithArgs(1).
+		WillReturnRows(testData.movieDetailLastWatched)
+
+	movie, err := retrieveMovieDetail(1)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+
+	if movie.ID != 1 {
+		t.Errorf("Wrong movie ID, expected 1, got %d", movie.ID)
 	}
 }

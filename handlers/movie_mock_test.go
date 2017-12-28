@@ -14,10 +14,6 @@ import (
 
 type movieBodyPayload string
 
-type MovieUtilsSuccessMocked struct{}
-type MovieUtilsCreateFailedMocked struct{}
-type MovieUtilsJSONParseFailedMocked struct{}
-
 type movieTestHandlerData struct {
 	movieListRows          *sqlmock.Rows
 	movieDetailRow         *sqlmock.Rows
@@ -28,6 +24,7 @@ type movieTestHandlerData struct {
 	movieSuccessHandlers         movies.MovieHandlers
 	movieCreateFailedHandlers    movies.MovieHandlers
 	movieJSONParseFailedHandlers movies.MovieHandlers
+	movieUpdateFailedHandlers    movies.MovieHandlers
 }
 
 func (m movieBodyPayload) Read(p []byte) (n int, err error) {
@@ -39,6 +36,8 @@ func (m movieBodyPayload) Close() error {
 }
 
 // MovieUtilsSuccessMocked
+type MovieUtilsSuccessMocked struct{}
+
 func (mh MovieUtilsSuccessMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
 	movie.ID = 1
 	movie.Name = "Test movie"
@@ -66,6 +65,8 @@ func (mh MovieUtilsSuccessMocked) GetJSONParameters(body io.ReadCloser, out inte
 }
 
 // MovieUtilsCreateFailedMocked
+type MovieUtilsCreateFailedMocked struct{}
+
 func (mh MovieUtilsCreateFailedMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
 	return movie, fmt.Errorf("Test error durring create movie")
 }
@@ -79,6 +80,8 @@ func (mh MovieUtilsCreateFailedMocked) GetJSONParameters(body io.ReadCloser, out
 }
 
 // MovieUtilsJSONParseFailedMocked
+type MovieUtilsJSONParseFailedMocked struct{}
+
 func (mh MovieUtilsJSONParseFailedMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
 	return movie, fmt.Errorf("Test error durring create movie")
 }
@@ -89,4 +92,19 @@ func (mh MovieUtilsJSONParseFailedMocked) UpdateMovie(id int64, payload models.M
 
 func (mh MovieUtilsJSONParseFailedMocked) GetJSONParameters(body io.ReadCloser, out interface{}) error {
 	return fmt.Errorf("Test error during parsing JSON parameters")
+}
+
+// MovieUtilsUpdateMovieFailedMocked
+type MovieUtilsUpdateMovieFailedMocked struct{}
+
+func (mh MovieUtilsUpdateMovieFailedMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
+	return movie, nil
+}
+
+func (mh MovieUtilsUpdateMovieFailedMocked) UpdateMovie(id int64, payload models.MovieUpdatePayload) (movie models.MovieDetail, err error) {
+	return movie, fmt.Errorf("Test error during update movie")
+}
+
+func (mh MovieUtilsUpdateMovieFailedMocked) GetJSONParameters(body io.ReadCloser, out interface{}) error {
+	return nil
 }

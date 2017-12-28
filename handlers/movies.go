@@ -69,10 +69,11 @@ func (mh MovieHandlers) MovieCreateHandler(w http.ResponseWriter, r *http.Reques
 	utils.RespondWithJSON(w, http.StatusOK, movie)
 }
 
+// MovieUpdate update selected movie with new data
 func (mh MovieHandlers) MovieUpdate(w http.ResponseWriter, r *http.Request) {
 	movieID, _ := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 	var payload models.MovieUpdatePayload
-	err := utils.GetJSONParameters(r.Body, &payload)
+	err := mh.Utils.GetJSONParameters(r.Body, &payload)
 
 	if err != nil {
 		utils.ResponseBadRequestError(w, err)
