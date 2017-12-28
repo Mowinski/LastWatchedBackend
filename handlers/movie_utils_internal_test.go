@@ -504,3 +504,43 @@ func TestRetrieveMovieDetail(t *testing.T) {
 		t.Errorf("Wrong movie ID, expected 1, got %d", movie.ID)
 	}
 }
+
+func TestRetrieveMovieDetailFailTVSeriesQuery(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+
+	mock.ExpectQuery("SELECT tv_series(.+)").
+		WithArgs(1).
+		WillReturnError(fmt.Errorf("Test error during tv_series"))
+
+	movie, err := retrieveMovieDetail(1)
+
+	if err.Error() != "Test error during tv_series" {
+		t.Errorf("Expected error 'Test error during tv_series', got: %s", err)
+	}
+
+	if movie.ID != 0 {
+		t.Errorf("Wrong movie ID, expected 0, got %d", movie.ID)
+	}
+}
+
+func TestRetrieveMovieDetailFailEpisodeQuery(t *testing.T) {
+	_, mock, testData := setupInternals(t)
+
+	mock.ExpectQuery("SELECT tv_series(.+)").
+		WithArgs(1).
+		WillReturnRows(testData.movieDetailRow)
+
+	mock.ExpectQuery("SELECT episode(.+)").
+		WithArgs(1).
+		WillReturnError(fmt.Errorf("Test error during episode"))
+
+	movie, err := retrieveMovieDetail(1)
+
+	if err != nil {
+		t.Errorf("Unexpected error, got: %s", err)
+	}
+
+	if movie.ID != 1 {
+		t.Errorf("Wrong movie ID, expected 1, got %d", movie.ID)
+	}
+}

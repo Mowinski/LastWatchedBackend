@@ -44,18 +44,16 @@ func retrieveMovieDetail(movieID int64) (movie models.MovieDetail, err error) {
 
 	query = "SELECT episode.id, season.id, episode.number, episode.date FROM episode JOIN season ON season.id = episode.season_id WHERE season.serial_id = ? AND episode.watched = 1 ORDER BY date DESC LIMIT 1;"
 	rows, err = database.GetDBConn().Query(query, movieID)
+
 	if err != nil {
-		return movie, err
+		return movie, nil
 	}
 
 	defer rows.Close()
 	rows.Next()
-	err = rows.Scan(&movie.LastWatchedEpisode.ID, &movie.LastWatchedEpisode.Series, &movie.LastWatchedEpisode.EpisodeNumber, &movie.DateOfLastWatchedEpisode)
-	if err != nil {
-		return movie, err
-	}
+	rows.Scan(&movie.LastWatchedEpisode.ID, &movie.LastWatchedEpisode.Series, &movie.LastWatchedEpisode.EpisodeNumber, &movie.DateOfLastWatchedEpisode)
 
-	return movie, err
+	return movie, nil
 }
 
 // CreateMovie function create movie in database
