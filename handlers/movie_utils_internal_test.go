@@ -44,7 +44,7 @@ func TestRetriveMovieItems(t *testing.T) {
 		WithArgs("Test", 10, 0).
 		WillReturnRows(testData.movieListRows)
 
-	movies, err := retriveMovieItems("Test", 10, 0)
+	movies, err := retrieveMovieItems("Test", 10, 0)
 
 	if err != nil {
 		t.Errorf("Can no retrive movie items, got error: %s", err)
@@ -62,7 +62,7 @@ func TestRetriveMovieItemsError(t *testing.T) {
 		WithArgs("Test", 10, 0).
 		WillReturnError(fmt.Errorf("Test Error"))
 
-	movies, err := retriveMovieItems("Test", 10, 0)
+	movies, err := retrieveMovieItems("Test", 10, 0)
 
 	if err == nil {
 		t.Errorf("Function does not return error")
@@ -137,6 +137,7 @@ func TestExecuteStmt(t *testing.T) {
 
 func TestCreateMovie(t *testing.T) {
 	_, mock, testData := setupInternals(t)
+	var movieHandler MovieHandlers
 
 	mock.ExpectBegin()
 	// Create movie
@@ -180,7 +181,7 @@ func TestCreateMovie(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := CreateMovie(payload)
+	movieDetail, err := movieHandler.CreateMovie(payload)
 
 	if err != nil {
 		t.Errorf("Unexpected error, got %s", err)
@@ -205,6 +206,7 @@ func TestCreateMovie(t *testing.T) {
 
 func TestCreateMovieFailTransaction(t *testing.T) {
 	_, mock, _ := setupInternals(t)
+	var movieHandler MovieHandlers
 
 	mock.ExpectBegin().WillReturnError(fmt.Errorf("Transaction start error"))
 
@@ -215,7 +217,7 @@ func TestCreateMovieFailTransaction(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := CreateMovie(payload)
+	movieDetail, err := movieHandler.CreateMovie(payload)
 
 	if err.Error() != "Transaction start error" {
 		t.Errorf("Wrong error, expected 'Transaction start error', got %s", err)
@@ -228,6 +230,7 @@ func TestCreateMovieFailTransaction(t *testing.T) {
 
 func TestCreateMovieFailCreateSeries(t *testing.T) {
 	_, mock, _ := setupInternals(t)
+	var movieHandler MovieHandlers
 
 	mock.ExpectBegin()
 	mock.ExpectPrepare("INSERT INTO tv_series (.+)")
@@ -241,7 +244,7 @@ func TestCreateMovieFailCreateSeries(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := CreateMovie(payload)
+	movieDetail, err := movieHandler.CreateMovie(payload)
 
 	if err.Error() != "Test error durring create tv_series" {
 		t.Errorf("Wrong error, expected 'Test error durring create tv_series', got %s", err)
@@ -254,6 +257,7 @@ func TestCreateMovieFailCreateSeries(t *testing.T) {
 
 func TestCreateMovieFailCreateSeason(t *testing.T) {
 	_, mock, _ := setupInternals(t)
+	var movieHandler MovieHandlers
 
 	mock.ExpectBegin()
 	mock.ExpectPrepare("INSERT INTO tv_series (.+)")
@@ -272,7 +276,7 @@ func TestCreateMovieFailCreateSeason(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := CreateMovie(payload)
+	movieDetail, err := movieHandler.CreateMovie(payload)
 
 	if err.Error() != "Test error durring create season" {
 		t.Errorf("Wrong error, expected 'Test error durring create season', got %s", err)
@@ -285,6 +289,7 @@ func TestCreateMovieFailCreateSeason(t *testing.T) {
 
 func TestCreateMovieFailCreateEpisode(t *testing.T) {
 	_, mock, _ := setupInternals(t)
+	var movieHandler MovieHandlers
 
 	mock.ExpectBegin()
 	// Create movie
@@ -310,7 +315,7 @@ func TestCreateMovieFailCreateEpisode(t *testing.T) {
 		EpisodesInSeries: 1,
 	}
 
-	movieDetail, err := CreateMovie(payload)
+	movieDetail, err := movieHandler.CreateMovie(payload)
 
 	if err.Error() != "Test error during create episode" {
 		t.Errorf("Wrong error, expected 'Test error during create episode', got %s", err)

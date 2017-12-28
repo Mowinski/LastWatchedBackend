@@ -5,9 +5,11 @@ import (
 
 	"github.com/Mowinski/LastWatchedBackend/database"
 	"github.com/Mowinski/LastWatchedBackend/models"
+	"github.com/Mowinski/LastWatchedBackend/utils"
+	"io"
 )
 
-func retriveMovieItems(searchString string, limit int, skip int) (movies models.MovieItems, err error) {
+func retrieveMovieItems(searchString string, limit int, skip int) (movies models.MovieItems, err error) {
 	rows, err := database.GetDBConn().Query("SELECT id, name, url  FROM tv_series WHERE name LIKE ? LIMIT ? OFFSET ?;", searchString, limit, skip)
 	if err != nil {
 		return movies, err
@@ -25,7 +27,7 @@ func retriveMovieItems(searchString string, limit int, skip int) (movies models.
 	return movies, nil
 }
 
-func retriveMovieDetail(movieID int64) (movie models.MovieDetail, err error) {
+func retrieveMovieDetail(movieID int64) (movie models.MovieDetail, err error) {
 	query := "SELECT tv_series.id, tv_series.name, url, COUNT(season.id) AS seriesCount FROM tv_series LEFT JOIN season ON season.serial_id = tv_series.id WHERE tv_series.id = ? GROUP BY tv_series.id;"
 	rows, err := database.GetDBConn().Query(query, movieID)
 	if err != nil {
@@ -55,7 +57,8 @@ func retriveMovieDetail(movieID int64) (movie models.MovieDetail, err error) {
 	return movie, err
 }
 
-func CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
+// CreateMovie function create movie in database
+func (mh MovieHandlers) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
 	conn := database.GetDBConn()
 
 	tx, err := conn.Begin()
@@ -94,7 +97,7 @@ func CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail,
 		}
 	}
 	tx.Commit()
-	return retriveMovieDetail(movieID)
+	return retrieveMovieDetail(movieID)
 }
 
 func executeStmt(tx *sql.Tx, query string, args ...interface{}) (id int64, err error) {
@@ -113,4 +116,34 @@ func executeStmt(tx *sql.Tx, query string, args ...interface{}) (id int64, err e
 		return id, err
 	}
 	return id, nil
+}
+
+// UpdateMovie function update selected movie
+func (mh MovieHandlers) UpdateMovie(movieID int64, payload models.MovieUpdatePayload) (movie models.MovieDetail, err error) {
+	conn := database.GetDBConn()
+
+	tx, err := conn.Begin()
+	if err != nil {
+		return movie, nil
+	}
+
+	_, err = executeStmt(
+		tx,
+		"UPDATE tv_series SET name = ?, url = ? WHERE id = ?;",
+		payload.MovieName,
+		payload.URL,
+		movieID)
+
+	if err != nil {
+		return movie, err
+	}
+
+	tx.Commit()
+
+	return retrieveMovieDetail(movieID)
+}
+
+// GetJSONParameters function return params from ReadCloser object
+func (mh MovieHandlers) GetJSONParameters(body io.ReadCloser, out interface{}) error {
+	return utils.GetJSONParameters(body, out)
 }

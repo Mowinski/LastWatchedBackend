@@ -30,6 +30,14 @@ type MovieCreationPayload struct {
 	EpisodesInSeries int
 }
 
+// MovieUpdatePayload describe information necessary to update movie object in database
+type MovieUpdatePayload struct {
+	MovieName        string
+	URL              string
+	SeriesNumber     int
+	EpisodesInSeries int
+}
+
 // Episode describe one episode
 type Episode struct {
 	ID            int

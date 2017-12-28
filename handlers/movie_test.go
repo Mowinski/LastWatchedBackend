@@ -6,74 +6,15 @@ import (
 	"github.com/Mowinski/LastWatchedBackend/database"
 	"github.com/Mowinski/LastWatchedBackend/logger"
 	"github.com/Mowinski/LastWatchedBackend/models"
-	"github.com/Mowinski/LastWatchedBackend/utils"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/Mowinski/LastWatchedBackend/handlers"
 	"github.com/gorilla/mux"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
-
-type movieBodyPayload string
-
-type MovieUtilsSuccessMocked struct{}
-type MovieUtilsCreateFailedMocked struct{}
-type MovieUtilsJSONParseFailedMocked struct{}
-
-type movieTestHandlerData struct {
-	movieListRows          *sqlmock.Rows
-	movieDetailRow         *sqlmock.Rows
-	movieDetailLastWatched *sqlmock.Rows
-
-	movieCreatePayload           movieBodyPayload
-	movieSuccessHandlers         movies.MovieHandlers
-	movieCreateFailedHandlers    movies.MovieHandlers
-	movieJSONParseFailedHandlers movies.MovieHandlers
-}
-
-func (m movieBodyPayload) Read(p []byte) (n int, err error) {
-	copy(p, m)
-	return len(m), nil
-}
-func (m movieBodyPayload) Close() error {
-	return nil
-}
-
-func (mh MovieUtilsSuccessMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
-	movie.ID = 1
-	movie.Name = "Test movie"
-	movie.URL = "http://www.example.com/test-movie"
-	movie.DateOfLastWatchedEpisode, _ = time.Parse(time.RFC822Z, "29 Jan 91 03:04 -0700")
-	movie.LastWatchedEpisode.ID = 2
-	movie.LastWatchedEpisode.Series = 3
-	movie.LastWatchedEpisode.EpisodeNumber = 3
-	return movie, nil
-}
-
-func (mh MovieUtilsCreateFailedMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
-	return movie, fmt.Errorf("Test error durring create movie")
-}
-
-func (mh MovieUtilsJSONParseFailedMocked) CreateMovie(payload models.MovieCreationPayload) (movie models.MovieDetail, err error) {
-	return movie, fmt.Errorf("Test error durring create movie")
-}
-
-func (mh MovieUtilsSuccessMocked) GetJSONParameters(body io.ReadCloser, out interface{}) error {
-	return utils.GetJSONParameters(body, out)
-}
-
-func (mh MovieUtilsCreateFailedMocked) GetJSONParameters(body io.ReadCloser, out interface{}) error {
-	return utils.GetJSONParameters(body, out)
-}
-
-func (mh MovieUtilsJSONParseFailedMocked) GetJSONParameters(body io.ReadCloser, out interface{}) error {
-	return fmt.Errorf("Test error during parsing JSON parameters")
-}
 
 func setup(t *testing.T) (sqlmock.Sqlmock, movieTestHandlerData) {
 	var testData movieTestHandlerData
@@ -87,7 +28,7 @@ func setup(t *testing.T) (sqlmock.Sqlmock, movieTestHandlerData) {
 	testData.movieDetailLastWatched = sqlmock.NewRows([]string{"id", "id", "number", "date"}).
 		AddRow(1, 1, 4, "2017-01-02 18:42:20")
 	testData.movieCreatePayload = "{\"movieName\":\"Marvel Runaways\",\"url\":\"www.google.com/url\",\"seriesNumber\":1,\"episodesInSeries\":10}"
-
+	testData.movieUpdatePayload = "{\"movieName\":\"Marvel Runaways New\",\"url\":\"www.google.com/new-url\",\"seriesNumber\": 1,\"episodesInSeries\": 10}"
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -316,9 +257,8 @@ func TestMovieCreateErrorHandler(t *testing.T) {
 
 func TestMovieCreateParseJSONErrorHandler(t *testing.T) {
 	_, testData := setup(t)
-	req, _ := http.NewRequest("POST", "/movie", nil)
+	req, _ := http.NewRequest("POST", "/movie", testData.movieCreatePayload)
 	res := httptest.NewRecorder()
-	req.Body = testData.movieCreatePayload
 
 	testData.movieJSONParseFailedHandlers.MovieCreateHandler(res, req)
 
@@ -331,5 +271,34 @@ func TestMovieCreateParseJSONErrorHandler(t *testing.T) {
 
 	if errorMsg["error"] != "Test error during parsing JSON parameters" {
 		t.Errorf("Wrong error message, expected 'Test error during parsing JSON parameters', got: %s", errorMsg["error"])
+	}
+}
+
+func TestMovieUpdateHandler(t *testing.T) {
+	_, testData := setup(t)
+	req, _ := http.NewRequest("PUT", "/movie/1", testData.movieUpdatePayload)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", testData.movieSuccessHandlers.MovieUpdate).Methods("PUT")
+	m.ServeHTTP(res, req)
+
+	if res.Code != 200 {
+		t.Errorf("Wrong status code, expected 200, got %d", res.Code)
+	}
+
+	var movieDetail models.MovieDetail
+	json.Unmarshal(res.Body.Bytes(), &movieDetail)
+
+	if movieDetail.ID != 1 {
+		t.Errorf("Wrong movie id, expected 1, got %d", movieDetail.ID)
+	}
+
+	if movieDetail.Name != "Marvel Runaways New" {
+		t.Errorf("Wrong movie name, expected 'Marvel Runaways New', got %s", movieDetail.Name)
+	}
+
+	if movieDetail.URL != "www.google.com/new-url" {
+		t.Errorf("Wrong movie URL, expected 'www.google.com/new-url', got %s", movieDetail.URL)
 	}
 }

@@ -18,10 +18,13 @@ type route struct {
 
 func newRouter() *mux.Router {
 	var movieHandler movies.MovieHandlers
+	movieHandler.Utils = movieHandler // TODO fix it
+
 	routes := []route{
-		route{"MovieList", "GET", "/movies", movieHandler.MovieListHandler},
-		route{"MovieDetail", "GET", "/movie/{id:[0-9]+}", movieHandler.MovieDetailsHanlder},
-		route{"MovieCreate", "POST", "/movie", movieHandler.MovieCreateHandler},
+		{"MovieList", "GET", "/movies", movieHandler.MovieListHandler},
+		{"MovieDetail", "GET", "/movie/{id:[0-9]+}", movieHandler.MovieDetailsHanlder},
+		{"MovieCreate", "POST", "/movie", movieHandler.MovieCreateHandler},
+		{"MovieUpdate", "PUT", "/movie/{id:[0-9]+}", movieHandler.MovieUpdate},
 	}
 
 	router := mux.NewRouter().StrictSlash(true)
