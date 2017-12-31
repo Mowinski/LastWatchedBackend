@@ -22,9 +22,10 @@ func newRouter() *mux.Router {
 
 	routes := []route{
 		{"MovieList", "GET", "/movies", movieHandler.MovieListHandler},
-		{"MovieDetail", "GET", "/movie/{id:[0-9]+}", movieHandler.MovieDetailsHanlder},
+		{"MovieDetail", "GET", "/movie/{id:[0-9]+}", movieHandler.MovieDetailsHandler},
 		{"MovieCreate", "POST", "/movie", movieHandler.MovieCreateHandler},
-		{"MovieUpdate", "PUT", "/movie/{id:[0-9]+}", movieHandler.MovieUpdate},
+		{"MovieUpdate", "PUT", "/movie/{id:[0-9]+}", movieHandler.MovieUpdateHandler},
+		{"MovieDelete", "DELETE", "/movie/{id:[0-9]+}", movieHandler.MovieDeleteHandler},
 	}
 
 	router := mux.NewRouter().StrictSlash(true)

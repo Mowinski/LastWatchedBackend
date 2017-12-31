@@ -485,6 +485,7 @@ func TestGetJSONParametersInvalidJSON(t *testing.T) {
 
 func TestRetrieveMovieDetail(t *testing.T) {
 	_, mock, testData := setupInternals(t)
+	var movieHandler MovieHandlers
 
 	mock.ExpectQuery("SELECT tv_series(.+)").
 		WithArgs(1).
@@ -494,7 +495,7 @@ func TestRetrieveMovieDetail(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(testData.movieDetailLastWatched)
 
-	movie, err := retrieveMovieDetail(1)
+	movie, err := movieHandler.RetrieveMovieDetail(1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -507,12 +508,13 @@ func TestRetrieveMovieDetail(t *testing.T) {
 
 func TestRetrieveMovieDetailFailTVSeriesQuery(t *testing.T) {
 	_, mock, _ := setupInternals(t)
+	var movieHandler MovieHandlers
 
 	mock.ExpectQuery("SELECT tv_series(.+)").
 		WithArgs(1).
 		WillReturnError(fmt.Errorf("Test error during tv_series"))
 
-	movie, err := retrieveMovieDetail(1)
+	movie, err := movieHandler.RetrieveMovieDetail(1)
 
 	if err.Error() != "Test error during tv_series" {
 		t.Errorf("Expected error 'Test error during tv_series', got: %s", err)
@@ -525,6 +527,7 @@ func TestRetrieveMovieDetailFailTVSeriesQuery(t *testing.T) {
 
 func TestRetrieveMovieDetailFailEpisodeQuery(t *testing.T) {
 	_, mock, testData := setupInternals(t)
+	var movieHandler MovieHandlers
 
 	mock.ExpectQuery("SELECT tv_series(.+)").
 		WithArgs(1).
@@ -534,7 +537,7 @@ func TestRetrieveMovieDetailFailEpisodeQuery(t *testing.T) {
 		WithArgs(1).
 		WillReturnError(fmt.Errorf("Test error during episode"))
 
-	movie, err := retrieveMovieDetail(1)
+	movie, err := movieHandler.RetrieveMovieDetail(1)
 
 	if err != nil {
 		t.Errorf("Unexpected error, got: %s", err)
@@ -542,5 +545,54 @@ func TestRetrieveMovieDetailFailEpisodeQuery(t *testing.T) {
 
 	if movie.ID != 1 {
 		t.Errorf("Wrong movie ID, expected 1, got %d", movie.ID)
+	}
+}
+
+func TestDeleteMovie(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+
+	var movieHandler MovieHandlers
+
+	mock.ExpectPrepare("DELETE FROM tv_series(.+)")
+	mock.ExpectExec("(.+)").
+		WithArgs(1).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err := movieHandler.DeleteMovie(1)
+
+	if err != nil {
+		t.Errorf("Unexpected error, got %s", err)
+	}
+}
+
+func TestDeleteMovieFailedPrepare(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+
+	var movieHandler MovieHandlers
+
+	mock.ExpectPrepare("DELETE FROM tv_series(.+)").
+		WillReturnError(fmt.Errorf("Test error during prepare"))
+
+	err := movieHandler.DeleteMovie(1)
+
+	if err.Error() != "Test error during prepare" {
+		t.Errorf("Expected error 'Test error during prepare', got %s", err)
+	}
+}
+
+func TestDeleteMovieFailedExecute(t *testing.T) {
+	_, mock, _ := setupInternals(t)
+
+	var movieHandler MovieHandlers
+
+	mock.ExpectPrepare("DELETE FROM tv_series(.+)")
+	mock.ExpectExec("(.+)").
+		WithArgs(1).
+		WillReturnError(fmt.Errorf("Test error in execute"))
+
+	err := movieHandler.DeleteMovie(1)
+
+	if err.Error() != "Test error in execute" {
+		t.Errorf("Expected error 'Test error in execute', got %s", err)
 	}
 }

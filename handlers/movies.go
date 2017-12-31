@@ -12,11 +12,14 @@ import (
 	"github.com/Mowinski/LastWatchedBackend/utils"
 )
 
-// Utils interface describe all utility function in handlers
+// MovieUtils interface describe all utility function in handlers
 type MovieUtils interface {
 	CreateMovie(payload models.MovieCreationPayload) (models.MovieDetail, error)
 	UpdateMovie(id int64, payload models.MovieUpdatePayload) (models.MovieDetail, error)
+	DeleteMovie(id int64) error
+
 	GetJSONParameters(body io.ReadCloser, out interface{}) error
+	RetrieveMovieDetail(movieID int64) (movie models.MovieDetail, err error)
 }
 
 // MovieHandlers join together all movie handlers
@@ -40,10 +43,10 @@ func (mh MovieHandlers) MovieListHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // MovieDetailsHandler is responsive for return movie detials
-func (mh MovieHandlers) MovieDetailsHanlder(w http.ResponseWriter, r *http.Request) {
+func (mh MovieHandlers) MovieDetailsHandler(w http.ResponseWriter, r *http.Request) {
 	movieID, _ := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 
-	movie, err := retrieveMovieDetail(movieID)
+	movie, err := mh.Utils.RetrieveMovieDetail(movieID)
 	if err != nil {
 		utils.ResponseBadRequestError(w, err)
 		return
@@ -69,14 +72,21 @@ func (mh MovieHandlers) MovieCreateHandler(w http.ResponseWriter, r *http.Reques
 	utils.RespondWithJSON(w, http.StatusOK, movie)
 }
 
-// MovieUpdate update selected movie with new data
-func (mh MovieHandlers) MovieUpdate(w http.ResponseWriter, r *http.Request) {
+// MovieUpdateHandler update selected movie with new data
+func (mh MovieHandlers) MovieUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	movieID, _ := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 	var payload models.MovieUpdatePayload
 	err := mh.Utils.GetJSONParameters(r.Body, &payload)
 
 	if err != nil {
 		utils.ResponseBadRequestError(w, err)
+		return
+	}
+
+	_, err = mh.Utils.RetrieveMovieDetail(movieID)
+
+	if err != nil {
+		utils.RespondWithJSON(w, http.StatusNotFound, nil)
 		return
 	}
 
@@ -87,4 +97,24 @@ func (mh MovieHandlers) MovieUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.RespondWithJSON(w, http.StatusOK, movie)
+}
+
+// MovieDeleteHandler remove movie from database
+func (mh MovieHandlers) MovieDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	movieID, _ := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+
+	movie, err := mh.Utils.RetrieveMovieDetail(movieID)
+
+	if err != nil || movie.ID == 0 {
+		utils.RespondWithJSON(w, http.StatusNotFound, nil)
+		return
+	}
+
+	err = mh.Utils.DeleteMovie(movieID)
+	if err != nil {
+		utils.ResponseBadRequestError(w, err)
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, nil)
 }

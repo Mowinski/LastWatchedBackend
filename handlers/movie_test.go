@@ -40,11 +40,15 @@ func setup(t *testing.T) (sqlmock.Sqlmock, movieTestHandlerData) {
 	var failedUtils MovieUtilsCreateFailedMocked
 	var jsonFailedUtils MovieUtilsJSONParseFailedMocked
 	var jsonUpdateFailedUtils MovieUtilsUpdateMovieFailedMocked
+	var movieDeleteFailedUtils MovieUtilsDeleteMovieFailedMocked
+	var movieRetrieveFailedUtils MovieRetrieveDetailFailedMocked
 
 	testData.movieSuccessHandlers = movies.MovieHandlers{Utils: successUtils}
 	testData.movieCreateFailedHandlers = movies.MovieHandlers{Utils: failedUtils}
 	testData.movieJSONParseFailedHandlers = movies.MovieHandlers{Utils: jsonFailedUtils}
 	testData.movieUpdateFailedHandlers = movies.MovieHandlers{Utils: jsonUpdateFailedUtils}
+	testData.movieDeleteFailedHandlers = movies.MovieHandlers{Utils: movieDeleteFailedUtils}
+	testData.movieRetrieveDetailFailedHandlers = movies.MovieHandlers{Utils: movieRetrieveFailedUtils}
 	database.SetDBConn(db)
 
 	return mock, testData
@@ -126,7 +130,7 @@ func TestMovieListHandlerError(t *testing.T) {
 	}
 }
 
-func TestMovieDetailsHanlder(t *testing.T) {
+func TestMovieDetailsHandler(t *testing.T) {
 	mock, testData := setup(t)
 	logger.SetLogger("test_log_file.txt")
 	defer os.Remove("test_log_file.txt")
@@ -143,7 +147,7 @@ func TestMovieDetailsHanlder(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	m := mux.NewRouter()
-	m.HandleFunc("/movie/{id}", testData.movieSuccessHandlers.MovieDetailsHanlder).Methods("GET")
+	m.HandleFunc("/movie/{id}", testData.movieSuccessHandlers.MovieDetailsHandler).Methods("GET")
 	m.ServeHTTP(res, req)
 
 	if res.Code != 200 {
@@ -170,20 +174,16 @@ func TestMovieDetailsHanlder(t *testing.T) {
 	}
 }
 
-func TestMovieDetailsHanlderError(t *testing.T) {
-	mock, testData := setup(t)
+func TestMovieDetailsHandlerError(t *testing.T) {
+	_, testData := setup(t)
 	logger.SetLogger("test_log_file.txt")
 	defer os.Remove("test_log_file.txt")
-
-	mock.ExpectQuery("(.+)").
-		WithArgs(1).
-		WillReturnError(fmt.Errorf("Test error"))
 
 	req, _ := http.NewRequest("GET", "/movie/1", nil)
 	res := httptest.NewRecorder()
 
 	m := mux.NewRouter()
-	m.HandleFunc("/movie/{id}", testData.movieSuccessHandlers.MovieDetailsHanlder).Methods("GET")
+	m.HandleFunc("/movie/{id}", testData.movieRetrieveDetailFailedHandlers.MovieDetailsHandler).Methods("GET")
 	m.ServeHTTP(res, req)
 
 	if res.Code != 400 {
@@ -193,8 +193,8 @@ func TestMovieDetailsHanlderError(t *testing.T) {
 	var errorMsg map[string]string
 	json.Unmarshal(res.Body.Bytes(), &errorMsg)
 
-	if errorMsg["error"] != "Test error" {
-		t.Errorf("Wrong error message, expected 'Test error', got: %s", errorMsg["error"])
+	if errorMsg["error"] != "Test error during retrieve" {
+		t.Errorf("Wrong error message, expected 'Test error during retrieve', got: %s", errorMsg["error"])
 	}
 }
 
@@ -286,7 +286,7 @@ func TestMovieUpdateHandler(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	m := mux.NewRouter()
-	m.HandleFunc("/movie/{id}", testData.movieSuccessHandlers.MovieUpdate).Methods("PUT")
+	m.HandleFunc("/movie/{id}", testData.movieSuccessHandlers.MovieUpdateHandler).Methods("PUT")
 	m.ServeHTTP(res, req)
 
 	if res.Code != 200 {
@@ -315,7 +315,7 @@ func TestMovieUpdateFailParametersHandler(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	m := mux.NewRouter()
-	m.HandleFunc("/movie/{id}", testData.movieJSONParseFailedHandlers.MovieUpdate).Methods("PUT")
+	m.HandleFunc("/movie/{id}", testData.movieJSONParseFailedHandlers.MovieUpdateHandler).Methods("PUT")
 	m.ServeHTTP(res, req)
 
 	if res.Code != 400 {
@@ -336,7 +336,7 @@ func TestMovieUpdateFailUpdateHandler(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	m := mux.NewRouter()
-	m.HandleFunc("/movie/{id}", testData.movieUpdateFailedHandlers.MovieUpdate).Methods("PUT")
+	m.HandleFunc("/movie/{id}", testData.movieUpdateFailedHandlers.MovieUpdateHandler).Methods("PUT")
 	m.ServeHTTP(res, req)
 
 	if res.Code != 400 {
@@ -348,5 +348,85 @@ func TestMovieUpdateFailUpdateHandler(t *testing.T) {
 
 	if errorMsg["error"] != "Test error during update movie" {
 		t.Errorf("Wrong error message, expected 'Test error during update movie', got: %s", errorMsg["error"])
+	}
+}
+
+func TestMovieUpdateFailRetrieveMovieHandler(t *testing.T) {
+	_, testData := setup(t)
+	req, _ := http.NewRequest("PUT", "/movie/1", testData.movieUpdatePayload)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", testData.movieRetrieveDetailFailedHandlers.MovieUpdateHandler).Methods("PUT")
+	m.ServeHTTP(res, req)
+
+	if res.Code != 404 {
+		t.Errorf("Wrong status code, expected 404, got %d", res.Code)
+	}
+
+	var errorMsg map[string]string
+	json.Unmarshal(res.Body.Bytes(), &errorMsg)
+
+	if errorMsg["error"] != "" {
+		t.Errorf("Wrong error message, expected '', got: %s", errorMsg["error"])
+	}
+}
+
+func TestMovieDeleteHandler(t *testing.T) {
+	_, testData := setup(t)
+
+	req, _ := http.NewRequest("DELETE", "/movie/1", nil)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", testData.movieSuccessHandlers.MovieDeleteHandler).Methods("DELETE")
+	m.ServeHTTP(res, req)
+
+	if res.Code != 200 {
+		t.Errorf("Wrong status code, expected 200, got %d", res.Code)
+	}
+}
+
+func TestMovieDeleteFailedHandler(t *testing.T) {
+	_, testData := setup(t)
+
+	req, _ := http.NewRequest("DELETE", "/movie/1", nil)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", testData.movieDeleteFailedHandlers.MovieDeleteHandler).Methods("DELETE")
+	m.ServeHTTP(res, req)
+
+	if res.Code != 400 {
+		t.Errorf("Wrong status code, expected 400, got %d", res.Code)
+	}
+
+	var errorMsg map[string]string
+	json.Unmarshal(res.Body.Bytes(), &errorMsg)
+
+	if errorMsg["error"] != "Test error during delete movie" {
+		t.Errorf("Wrong error message, expected 'Test error during delete movie', got: %s", errorMsg["error"])
+	}
+}
+
+func TestMovieDeleteRetrieveFailedHandler(t *testing.T) {
+	_, testData := setup(t)
+
+	req, _ := http.NewRequest("DELETE", "/movie/1", nil)
+	res := httptest.NewRecorder()
+
+	m := mux.NewRouter()
+	m.HandleFunc("/movie/{id}", testData.movieRetrieveDetailFailedHandlers.MovieDeleteHandler).Methods("DELETE")
+	m.ServeHTTP(res, req)
+
+	if res.Code != 404 {
+		t.Errorf("Wrong status code, expected 404, got %d", res.Code)
+	}
+
+	var errorMsg map[string]string
+	json.Unmarshal(res.Body.Bytes(), &errorMsg)
+
+	if errorMsg["error"] != "" {
+		t.Errorf("Wrong error message, expected '', got: %s", errorMsg["error"])
 	}
 }
